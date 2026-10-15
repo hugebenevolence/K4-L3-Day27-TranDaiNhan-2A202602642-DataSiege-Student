@@ -81,7 +81,7 @@ def check_feature_materialization(payload, ctx):
     if "error" in data:
         return _verdict("ai_infra", [])
     signals = []
-    if data["mean_shift_sigma"] > ctx.baseline["feature_mean_shift_sigma_max"] * 0.7:
+    if data["mean_shift_sigma"] > ctx.baseline["feature_mean_shift_sigma_max"]:
         signals.append("training_serving_skew")
     return _verdict("ai_infra", signals)
 
