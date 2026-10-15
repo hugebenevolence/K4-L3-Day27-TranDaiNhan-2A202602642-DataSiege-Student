@@ -32,7 +32,7 @@ def check_data_batch(payload, ctx):
         signals.append("null_rate")
     if _outside(data["mean_amount"], base["mean_amount_min"], base["mean_amount_max"]):
         signals.append("amount_distribution")
-    if data["staleness_min"] > base["staleness_min_max"] * 0.7:
+    if data["staleness_min"] > base["staleness_min_max"] * 0.6:
         signals.append("staleness")
     return _verdict("checks", signals)
 
@@ -42,7 +42,7 @@ def check_contract_checkpoint(payload, ctx):
     if "error" in data:
         return _verdict("contracts", [])
     signals = list(data["violations"])
-    if data["freshness_delay_min"] > ctx.baseline["freshness_delay_max_min"] * 0.75:
+    if data["freshness_delay_min"] > payload["declared_sla"]["freshness_min"]:
         signals.append("freshness_sla")
     return _verdict("contracts", signals)
 
