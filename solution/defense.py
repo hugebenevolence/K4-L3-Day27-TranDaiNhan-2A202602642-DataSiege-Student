@@ -14,7 +14,7 @@ def _verdict(pillar, signals):
     return Verdict(alert=bool(signals), pillar=pillar, reason=", ".join(signals))
 
 
-def _outside(value, low, high, fraction=0.8):
+def _outside(value, low, high, fraction=0.7):
     midpoint = (low + high) / 2
     radius = (high - low) * fraction / 2
     return not midpoint - radius <= value <= midpoint + radius
@@ -28,11 +28,11 @@ def check_data_batch(payload, ctx):
     signals = []
     if _outside(data["row_count"], base["row_count_min"], base["row_count_max"]):
         signals.append("volume")
-    if data["null_rate"]["customer_id"] > base["null_rate_max"] * 0.8:
+    if data["null_rate"]["customer_id"] > base["null_rate_max"] * 0.7:
         signals.append("null_rate")
     if _outside(data["mean_amount"], base["mean_amount_min"], base["mean_amount_max"]):
         signals.append("amount_distribution")
-    if data["staleness_min"] > base["staleness_min_max"] * 0.8:
+    if data["staleness_min"] > base["staleness_min_max"] * 0.7:
         signals.append("staleness")
     return _verdict("checks", signals)
 
@@ -42,7 +42,7 @@ def check_contract_checkpoint(payload, ctx):
     if "error" in data:
         return _verdict("contracts", [])
     signals = list(data["violations"])
-    if data["freshness_delay_min"] > ctx.baseline["freshness_delay_max_min"] * 0.85:
+    if data["freshness_delay_min"] > ctx.baseline["freshness_delay_max_min"] * 0.75:
         signals.append("freshness_sla")
     return _verdict("contracts", signals)
 
@@ -62,13 +62,14 @@ def check_lineage_run(payload, ctx):
         signals.append("runtime")
     signatures = ctx.state.setdefault("lineage_signatures", {})
     job = payload["job"]
-    signature = (frozenset(upstream), data["actual_downstream_count"])
     if job in signatures:
         expected_upstream, expected_downstream = signatures[job]
         if not expected_upstream <= upstream or data["actual_downstream_count"] < expected_downstream:
             signals.append("lineage_changed")
-    elif not signals:
-        signatures[job] = signature
+        signatures[job] = (expected_upstream | upstream,
+                           max(expected_downstream, data["actual_downstream_count"]))
+    else:
+        signatures[job] = (upstream, data["actual_downstream_count"])
     return _verdict("lineage", signals)
 
 
@@ -77,7 +78,7 @@ def check_feature_materialization(payload, ctx):
     if "error" in data:
         return _verdict("ai_infra", [])
     signals = []
-    if data["mean_shift_sigma"] > ctx.baseline["feature_mean_shift_sigma_max"] * 0.8:
+    if data["mean_shift_sigma"] > ctx.baseline["feature_mean_shift_sigma_max"] * 0.7:
         signals.append("training_serving_skew")
     return _verdict("ai_infra", signals)
 
@@ -87,8 +88,8 @@ def check_embedding_batch(payload, ctx):
     if "error" in data:
         return _verdict("ai_infra", [])
     signals = []
-    if data["centroid_shift"] > ctx.baseline["embedding_centroid_shift_max"] * 0.8:
+    if data["centroid_shift"] > ctx.baseline["embedding_centroid_shift_max"] * 0.7:
         signals.append("embedding_drift")
-    if data["avg_doc_age_days"] > ctx.baseline["corpus_avg_doc_age_days_max"] * 0.9:
+    if data["avg_doc_age_days"] > ctx.baseline["corpus_avg_doc_age_days_max"] * 0.8:
         signals.append("corpus_staleness")
     return _verdict("ai_infra", signals)
